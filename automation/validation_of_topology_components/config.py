@@ -1,0 +1,14 @@
+from global_config import *
+
+MILESTONE_NAME = "scenario1_8tors"
+MILESTONE_BASE_PATH = f"{DATA_BASE_PATH}/{MILESTONE_NAME}"
+
+
+PRINT_STATS = True
+PRINT_THREAD_STATS = True
+
+CLKPERIOD = 0.005
+VLAN_MAX = 8
+
+NUM_RACKS = 8
+SHAPING = 1

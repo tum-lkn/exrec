@@ -1,0 +1,55 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+ENV['VAGRANT_DEFAULT_PROVIDER'] = 'libvirt'
+
+Vagrant.configure("2") do |config|
+  config.vm.box_check_update = false
+  # Ubuntu 18.04
+  config.vm.box = "cerberus/base"
+  # VM hostname
+  config.vm.define "$HOSTNAME-vm-$VM_ID"
+  config.vm.hostname = "$HOSTNAME-vm-$VM_ID"
+  # Allow SSH into the VM from outside
+  config.vm.network "forwarded_port", guest: 22, host: $SSH_PORT, protocol: "tcp", host_ip: "0.0.0.0"
+  # Use host's private key for SSH
+  config.ssh.private_key_path = "/root/.ssh/id_rsa" 
+  config.ssh.username = "root" 
+  config.ssh.insert_key = false
+
+  # Disable default share because not needed
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  # config.vm.synced_folder "/vagrant_share", "/shared_folder"
+
+# Provider-specific: virtIO vHost client
+  config.vm.provider :libvirt do |v|
+    v.memory = 8192
+    v.qemuargs :value => '-machine'
+    v.qemuargs :value => 'accel=kvm'
+    # 1 CPU with 4 cores
+    v.qemuargs :value => '-cpu'
+    v.qemuargs :value => 'host'
+    v.qemuargs :value => '-smp'
+    v.qemuargs :value => '4,sockets=1,cores=4,threads=1,maxcpus=4'
+    # 1G of RAM...
+    v.qemuargs :value => '-m'
+    v.qemuargs :value => '8G'
+    # ... with huge pages
+    # QEMU will create a file to serve as the guest RAM and allow another process to map that file.
+    v.qemuargs :value => '-object'
+    v.qemuargs :value => 'memory-backend-file,id=mem,size=8G,share=on,mem-path=/mnt/huge'
+    v.qemuargs :value => '-mem-prealloc'
+    v.qemuargs :value => '-numa'
+    v.qemuargs :value => 'node,memdev=mem'
+    # Define the network interface
+    v.qemuargs :value => '-chardev'
+    v.qemuargs :value => 'socket,id=char1,path=/tmp/sock0,reconnect=1'
+    v.qemuargs :value => '-netdev'
+    v.qemuargs :value => 'type=vhost-user,id=hostnet1,chardev=char1,vhostforce'
+    v.qemuargs :value => '-device'
+    v.qemuargs :value => 'virtio-net-pci,netdev=hostnet1,id=net1,mac=$MAC,rx_queue_size=1024,tx_queue_size=1024,mrg_rxbuf=on,csum=on,gso=on,guest_csum=on'
+  end
+
+  config.vm.provision "file", source: "./moongen-scripts/", destination: "/home/vagrant/"
+  config.vm.provision :shell, :path => "vagrant-docker-vm-boot.sh", run: 'always'
+end
